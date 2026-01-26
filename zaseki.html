@@ -1,0 +1,1562 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>座席表管理システム（素のHTML/JS/CSS・回転ON/OFF付き）</title>
+  <style>
+    :root{
+      --bg:#f6f7fb;
+      --card:#ffffff;
+      --text:#0f172a;
+      --muted:#64748b;
+      --line:#e2e8f0;
+      --blue:#2563eb;
+      --blue2:#1d4ed8;
+      --green:#22c55e;
+      --green2:#16a34a;
+      --red:#ef4444;
+      --red2:#dc2626;
+      --orange:#f97316;
+      --orange2:#ea580c;
+      --purple:#a855f7;
+      --purple2:#9333ea;
+      --shadow: 0 8px 24px rgba(15, 23, 42, .08);
+      --radius: 14px;
+    }
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+      color:var(--text);
+      background:var(--bg);
+    }
+
+    .app{ min-height:100vh; display:flex; flex-direction:column; }
+    .topbar{
+      background:var(--blue);
+      color:#fff;
+      padding:14px 18px;
+      box-shadow: 0 6px 18px rgba(37, 99, 235, .22);
+    }
+    .topbar h1{ margin:0; font-size:20px; letter-spacing:.02em; }
+    .topbar p{ margin:6px 0 0; font-size:12px; opacity:.9; }
+
+    .content{ flex:1; display:flex; min-height:0; }
+    .sidebar{
+      width:260px;
+      background:var(--card);
+      border-right:1px solid var(--line);
+      overflow:auto;
+    }
+    .sidebar-inner{ padding:16px; }
+    .sidebar h2{ margin:0 0 12px; font-size:16px; }
+    .grade-block{ margin:14px 0; }
+    .grade-title{
+      color:#334155;
+      font-weight:700;
+      font-size:13px;
+      margin:0 0 8px;
+    }
+    .class-btn{
+      width:100%;
+      text-align:left;
+      border:0;
+      background:transparent;
+      padding:10px 12px;
+      border-radius:10px;
+      cursor:pointer;
+      transition:.15s ease;
+      color:#0f172a;
+      font-weight:650;
+    }
+    .class-btn:hover{ background:#f1f5f9; }
+    .class-btn.active{ background:var(--blue); color:#fff; }
+
+    .main{ flex:1; overflow:auto; min-width:0; }
+    .main-inner{ padding:18px; max-width:1200px; margin:0 auto; }
+
+    .card{
+      background:var(--card);
+      border:1px solid rgba(226, 232, 240, .8);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .controls-card{ padding:14px; margin-bottom:14px; }
+    .controls-header{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-bottom:10px;
+    }
+    #classTitle{ margin:0; font-size:18px; font-weight:800; }
+    .view-switch{ display:flex; gap:8px; flex-wrap:wrap; }
+
+    .btn{
+      border:0;
+      border-radius:12px;
+      padding:10px 12px;
+      cursor:pointer;
+      font-weight:800;
+      font-size:13px;
+      transition:.15s ease;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      user-select:none;
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn.gray{ background:#e2e8f0; color:#0f172a; }
+    .btn.gray:hover{ background:#d8e0ea; }
+    .btn.blue{ background:var(--blue); color:#fff; }
+    .btn.blue:hover{ background:var(--blue2); }
+    .btn.green{ background:var(--green); color:#fff; }
+    .btn.green:hover{ background:var(--green2); }
+    .btn.red{ background:var(--red); color:#fff; }
+    .btn.red:hover{ background:var(--red2); }
+    .btn.orange{ background:var(--orange); color:#fff; }
+    .btn.orange:hover{ background:var(--orange2); }
+    .btn.purple{ background:var(--purple); color:#fff; }
+    .btn.purple:hover{ background:var(--purple2); }
+    .btn.outline{
+      background:transparent;
+      border:1px solid var(--line);
+      color:#0f172a;
+    }
+    .btn.outline:hover{ background:#f8fafc; }
+
+    .controls-row{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .hidden{ display:none !important; }
+
+    .field{
+      display:flex;
+      align-items:center;
+      gap:6px;
+      margin-left:10px;
+      color:#334155;
+      font-weight:800;
+      font-size:12px;
+    }
+    .field input, .field select{
+      width:72px;
+      padding:7px 8px;
+      border:1px solid var(--line);
+      border-radius:10px;
+      outline:none;
+      font-weight:750;
+      background:#fff;
+    }
+    .field select{ width:120px; }
+    .field input:focus, .field select:focus{
+      border-color: rgba(37, 99, 235, .55);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+    }
+
+    .grid-3col{
+      display:grid;
+      grid-template-columns: 2fr 1fr;
+      gap:14px;
+    }
+    @media (max-width: 980px){
+      .grid-3col{ grid-template-columns: 1fr; }
+    }
+
+    .seating-card{
+      padding:16px;
+      display:flex;            /* 教卓の位置入れ替えのため */
+      flex-direction:column;   /* 通常：教卓→座席 */
+      gap:10px;
+    }
+    .seating-card.rot180{
+      flex-direction:column-reverse; /* 回転時：座席→教卓（教卓を下へ） */
+    }
+
+    .teacher-desk{
+      text-align:center;
+      font-weight:900;
+      color:#475569;
+      margin: 2px 0 0;
+      letter-spacing:.05em;
+    }
+
+    .seating-grid{ display:grid; gap:10px; }
+
+    .seat{
+      position:relative;
+      aspect-ratio: 1 / 1;
+      border:2px dashed #cbd5e1;
+      border-radius: 14px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      transition:.15s ease;
+      background:#fff;
+      overflow:hidden;
+    }
+    .seat:hover{ border-color: rgba(37, 99, 235, .55); }
+    .seat .coord{
+      font-size:11px;
+      color:#94a3b8;
+      font-weight:800;
+    }
+
+    .seat-card{
+      width:100%;
+      height:100%;
+      padding:10px;
+      background: rgba(37, 99, 235, .10);
+      border-radius: 12px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      cursor:grab;
+      position:relative;
+      user-select:none;
+    }
+    .seat-card:active{ cursor:grabbing; }
+    .seat-card .num{ font-size:11px; font-weight:900; color:#1e3a8a; }
+    .seat-card .name{
+      margin-top:4px;
+      font-size:13px;
+      font-weight:900;
+      color:#0f172a;
+      line-height:1.1;
+      word-break: break-word;
+    }
+    .seat-remove{
+      position:absolute;
+      top:8px;
+      right:8px;
+      width:22px;
+      height:22px;
+      border-radius:999px;
+      border:0;
+      background: var(--red);
+      color:#fff;
+      font-weight:900;
+      cursor:pointer;
+      opacity:0;
+      transition:.15s ease;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .seat:hover .seat-remove{ opacity:1; }
+
+    .unassigned-card{ padding:14px; }
+    .unassigned-card h3{ margin:0 0 10px; font-size:14px; font-weight:900; }
+    .unassigned-list{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      max-height: 420px;
+      overflow:auto;
+      padding-right:4px;
+    }
+    .student-pill{
+      padding:10px 12px;
+      border-radius: 12px;
+      background:#f1f5f9;
+      cursor:grab;
+      transition:.15s ease;
+      border:1px solid rgba(226, 232, 240, .9);
+      user-select:none;
+    }
+    .student-pill:active{ cursor:grabbing; }
+    .student-pill:hover{ background:#eaf0f7; }
+    .student-pill .pill-name{ font-weight:900; }
+    .student-pill .pill-sub{ font-size:11px; color:var(--muted); margin-top:2px; font-weight:800; }
+    .empty-note{ text-align:center; color:var(--muted); font-weight:900; padding:16px 0; }
+
+    .students-card{ overflow:hidden; }
+    .students-head{ padding:14px; border-bottom:1px solid var(--line); }
+    .students-head h3{ margin:0; font-size:14px; font-weight:900; }
+    .students-head .hint{
+      margin-top:8px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:750;
+      line-height:1.4;
+    }
+    .table-wrap{ overflow:auto; }
+    table{ width:100%; border-collapse:collapse; min-width:700px; }
+    thead th{
+      background:#f8fafc;
+      text-align:left;
+      font-size:12px;
+      padding:10px 12px;
+      color:#334155;
+      font-weight:900;
+      border-bottom:1px solid var(--line);
+      position:sticky;
+      top:0;
+      z-index:1;
+    }
+    tbody td{
+      padding:10px 12px;
+      border-bottom:1px solid #edf2f7;
+      vertical-align:middle;
+      font-weight:750;
+    }
+    tbody tr:hover{ background:#fafcff; }
+
+    .cell-input{
+      width:100%;
+      padding:8px 10px;
+      border:1px solid var(--line);
+      border-radius:10px;
+      outline:none;
+      font-weight:850;
+    }
+    .cell-input:focus{
+      border-color: rgba(37, 99, 235, .55);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+    }
+    .cell-num{ width:90px; }
+
+    .danger-mini{
+      border:0;
+      border-radius:10px;
+      padding:8px 10px;
+      cursor:pointer;
+      background: var(--red);
+      color:#fff;
+      font-weight:900;
+      font-size:12px;
+    }
+    .danger-mini:hover{ background: var(--red2); }
+
+    /* Modal */
+    .modal{
+      position:fixed;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      background: rgba(0,0,0,.50);
+      z-index:50;
+    }
+    .modal-panel{
+      width:min(980px, 100%);
+      height: min(85vh, 860px);
+      background:var(--card);
+      border-radius: var(--radius);
+      box-shadow: 0 18px 60px rgba(0,0,0,.28);
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+      border:1px solid rgba(226, 232, 240, .85);
+    }
+    .modal-head{
+      padding:14px 16px;
+      background:#f8fafc;
+      border-bottom:1px solid var(--line);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .modal-head h3{ margin:0; font-size:16px; font-weight:950; }
+    .modal-close{
+      width:34px;
+      height:34px;
+      border-radius:12px;
+      border:0;
+      cursor:pointer;
+      background:#e2e8f0;
+      font-size:20px;
+      font-weight:950;
+      color:#334155;
+    }
+    .modal-close:hover{ background:#d8e0ea; }
+    .modal-body{ flex:1; overflow:auto; padding:14px 16px; background:#fff; }
+    .modal-foot{
+      padding:10px 12px;
+      background:#f8fafc;
+      border-top:1px solid var(--line);
+      color:var(--muted);
+      font-size:12px;
+      font-weight:850;
+      text-align:center;
+    }
+    .history-empty{
+      height:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      color:var(--muted);
+      font-weight:900;
+    }
+    .history-item{
+      border:2px solid #e2e8f0;
+      border-radius: 14px;
+      padding:12px;
+      transition:.15s ease;
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      background:#fff;
+    }
+    .history-item:hover{ border-color: rgba(37, 99, 235, .35); background:#f5f9ff; }
+    .history-left{ min-width:0; }
+    .badge{ display:inline-flex; align-items:center; gap:8px; margin-bottom:8px; }
+    .badge span{
+      display:inline-block;
+      padding:3px 8px;
+      border-radius:999px;
+      background: rgba(37,99,235,.10);
+      color:#1d4ed8;
+      font-size:11px;
+      font-weight:950;
+    }
+    .history-title{
+      font-size:15px;
+      font-weight:950;
+      margin:0;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      max-width: 520px;
+    }
+    .history-meta{
+      margin-top:6px;
+      font-size:12px;
+      color:#475569;
+      font-weight:850;
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+    .history-actions{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      flex-shrink:0;
+    }
+    .mini{
+      padding:9px 10px;
+      border-radius:12px;
+      border:0;
+      cursor:pointer;
+      font-weight:950;
+      font-size:12px;
+      color:#fff;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      white-space:nowrap;
+    }
+    .mini.blue{ background: var(--blue); }
+    .mini.blue:hover{ background: var(--blue2); }
+    .mini.red{ background: var(--red); }
+    .mini.red:hover{ background: var(--red2); }
+
+    /* =========================
+       座席表の180度回転 ON/OFF
+       ========================= */
+    .seating-grid.rot180{
+      transform: rotate(180deg);
+      transform-origin: center;
+    }
+    /* 回転すると文字も逆さになるので、中身だけ戻す */
+    .seating-grid.rot180 .seat > *{
+      transform: rotate(180deg);
+      transform-origin: center;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <header class="topbar">
+      <h1>明石南高校　オンライン座席表管理システム</h1>
+      <p> </p>
+    </header>
+
+    <div class="content">
+      <aside class="sidebar">
+        <div class="sidebar-inner">
+          <h2>クラス選択</h2>
+          <div id="classButtons"></div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <div class="main-inner">
+          <div class="card controls-card">
+            <div class="controls-header">
+              <h2 id="classTitle">-</h2>
+              <div class="view-switch">
+                <button id="btnViewSeating" class="btn blue" type="button">🪑 座席表</button>
+                <button id="btnViewStudents" class="btn gray" type="button">👥 学生管理</button>
+              </div>
+            </div>
+
+            <!-- Seating controls -->
+            <div id="controlsSeating" class="controls-row">
+              <button id="btnAutoArrange" class="btn Yellow" type="button">🔀 自動配置</button>
+              <button id="btnClearAll" class="btn red" type="button">🧹 全クリア</button>
+              <button id="btnSaveHistory" class="btn blue" type="button">💾 履歴保存</button>
+              <button id="btnToggleHistory" class="btn purple" type="button">
+                🕘 履歴 (<span id="historyCount">0</span>)
+              </button>
+
+              <!-- ★回転 ON/OFF -->
+              <button id="btnToggleRotate" class="btn outline" type="button">
+                🔄 回転: <span id="rotateState">ON</span>
+              </button>
+
+              <button id="btnExportCsvSeating" class="btn orange" type="button">⬇️ CSV出力</button>
+
+              <div class="field" title="座席レイアウト（変更すると座席配置はリセットされます）">
+                行:
+                <input id="inputRows" type="number" min="1" max="10" value="6" />
+                列:
+                <input id="inputCols" type="number" min="1" max="10" value="6" />
+              </div>
+            </div>
+
+            <!-- Students controls -->
+            <div id="controlsStudents" class="controls-row hidden">
+              <button id="btnAddStudent" class="btn blue" type="button">➕ 学生追加</button>
+
+              <label class="btn Yellow" for="inputStudentsCsv" style="cursor:pointer;">
+                ⬆️ CSV入力
+              </label>
+              <input id="inputStudentsCsv" type="file" accept=".csv" class="hidden" />
+
+              <div class="field">
+                文字コード:
+                <select id="selectEncoding">
+                  <option value="UTF-8">UTF-8</option>
+                  <option value="Shift_JIS">Shift_JIS</option>
+                </select>
+              </div>
+
+              <button id="btnExportCsvStudents" class="btn orange" type="button">⬇️ CSV出力</button>
+            </div>
+          </div>
+
+          <!-- Seating view -->
+          <section id="viewSeating">
+            <div class="grid-3col">
+              <div>
+                <div id="seatingCard" class="card seating-card">
+                  <div class="teacher-desk">教卓</div>
+                  <div id="seatingGrid" class="seating-grid"></div>
+                </div>
+              </div>
+
+              <div>
+                <div class="card unassigned-card">
+                  <h3>未配置の学生</h3>
+                  <div id="unassignedList" class="unassigned-list"></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Students view -->
+          <section id="viewStudents" class="hidden">
+            <div class="card students-card">
+              <div class="students-head">
+                <h3 id="studentsCount">学生一覧 (0名)</h3>
+                <div class="hint">
+                  CSVフォーマット: <strong>出席番号,名前</strong>（ヘッダー行あり）<br/>
+                  例: <code>1,山田太郎</code>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th style="width:120px;">出席番号</th>
+                      <th>名前</th>
+                      <th style="width:160px;">座席位置</th>
+                      <th style="width:120px;">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="studentsTbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- History Modal -->
+  <div id="historyModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
+    <div class="modal-panel">
+      <div class="modal-head">
+        <h3 id="historyTitle">座席配置履歴</h3>
+        <button id="btnCloseHistory" class="modal-close" type="button" aria-label="閉じる">×</button>
+      </div>
+      <div id="historyBody" class="modal-body"></div>
+      <div id="historyFoot" class="modal-foot hidden"></div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      "use strict";
+
+      // -----------------------------
+      // State & constants
+      // -----------------------------
+      const CLASS_STRUCTURE = { 1: 7, 2: 7, 3: 8 };
+
+      const state = {
+        selectedGrade: 1,
+        selectedClass: 1,
+        layout: { rows: 6, cols: 6 },
+        students: [],
+        seats: [],
+        history: [],
+        view: "seating",   // "seating" | "students"
+        showHistory: false,
+
+        // ★回転状態（デフォルトはON：教卓が下になる表示）
+        rotate180: true,
+
+        draggedStudentId: null,
+        draggedFromSeat: null, // {row,col} | null
+        csvEncoding: "UTF-8"
+      };
+
+      // -----------------------------
+      // DOM refs
+      // -----------------------------
+      const el = {
+        classButtons: document.getElementById("classButtons"),
+        classTitle: document.getElementById("classTitle"),
+
+        btnViewSeating: document.getElementById("btnViewSeating"),
+        btnViewStudents: document.getElementById("btnViewStudents"),
+
+        controlsSeating: document.getElementById("controlsSeating"),
+        controlsStudents: document.getElementById("controlsStudents"),
+
+        btnAutoArrange: document.getElementById("btnAutoArrange"),
+        btnClearAll: document.getElementById("btnClearAll"),
+        btnSaveHistory: document.getElementById("btnSaveHistory"),
+        btnToggleHistory: document.getElementById("btnToggleHistory"),
+        historyCount: document.getElementById("historyCount"),
+
+        // ★回転ボタン
+        btnToggleRotate: document.getElementById("btnToggleRotate"),
+        rotateState: document.getElementById("rotateState"),
+
+        btnExportCsvSeating: document.getElementById("btnExportCsvSeating"),
+
+        inputRows: document.getElementById("inputRows"),
+        inputCols: document.getElementById("inputCols"),
+
+        btnAddStudent: document.getElementById("btnAddStudent"),
+        inputStudentsCsv: document.getElementById("inputStudentsCsv"),
+        selectEncoding: document.getElementById("selectEncoding"),
+        btnExportCsvStudents: document.getElementById("btnExportCsvStudents"),
+
+        viewSeating: document.getElementById("viewSeating"),
+        viewStudents: document.getElementById("viewStudents"),
+
+        seatingCard: document.getElementById("seatingCard"),
+        seatingGrid: document.getElementById("seatingGrid"),
+        unassignedList: document.getElementById("unassignedList"),
+
+        studentsCount: document.getElementById("studentsCount"),
+        studentsTbody: document.getElementById("studentsTbody"),
+
+        historyModal: document.getElementById("historyModal"),
+        btnCloseHistory: document.getElementById("btnCloseHistory"),
+        historyBody: document.getElementById("historyBody"),
+        historyFoot: document.getElementById("historyFoot")
+      };
+
+      // -----------------------------
+      // Utils
+      // -----------------------------
+      function deepClone(obj){
+        return JSON.parse(JSON.stringify(obj));
+      }
+      function classKey(){
+        return `${state.selectedGrade}-${state.selectedClass}`;
+      }
+      function safeParse(json, fallback){
+        try{
+          const v = JSON.parse(json);
+          return (v === null || v === undefined) ? fallback : v;
+        }catch{
+          return fallback;
+        }
+      }
+      function normalizeLayout(layout){
+        const rows = clampInt(layout?.rows, 1, 10, 6);
+        const cols = clampInt(layout?.cols, 1, 10, 6);
+        return { rows, cols };
+      }
+      function clampInt(v, min, max, def){
+        const n = parseInt(v, 10);
+        if (Number.isNaN(n)) return def;
+        return Math.min(max, Math.max(min, n));
+      }
+      function parseBool(v, fallback){
+        if (v === null || v === undefined) return fallback;
+        if (typeof v === "boolean") return v;
+        if (typeof v === "string"){
+          if (v.toLowerCase() === "true") return true;
+          if (v.toLowerCase() === "false") return false;
+        }
+        return fallback;
+      }
+
+      function makeSampleStudents(key, grade, classNum){
+        return Array.from({ length: 45 }, (_, i) => ({
+          id: `${key}-${i + 1}`,
+          name: `生徒${i + 1}`,
+          attendanceNumber: i + 1,
+          grade,
+          classNumber: classNum
+        }));
+      }
+      function makeSeats(rows, cols){
+        const seats = [];
+        for(let r=0; r<rows; r++){
+          for(let c=0; c<cols; c++){
+            seats.push({ row: r, col: c, studentId: null });
+          }
+        }
+        return seats;
+      }
+      function seatIndex(row, col){
+        return row * state.layout.cols + col;
+      }
+      function assignedSeatOfStudent(studentId){
+        return state.seats.find(s => s.studentId === studentId) || null;
+      }
+      function unassignedStudents(){
+        const assigned = new Set(state.seats.filter(s => s.studentId).map(s => s.studentId));
+        return state.students.filter(st => !assigned.has(st.id));
+      }
+
+      function ensureSeatsMatchLayout(savedSeatsMaybe){
+        const expected = state.layout.rows * state.layout.cols;
+
+        if (Array.isArray(state.seats) && state.seats.length === expected){
+          cleanupSeatInvalidStudentIds();
+          return;
+        }
+
+        const map = new Map();
+        if (Array.isArray(savedSeatsMaybe)){
+          for (const s of savedSeatsMaybe){
+            if (typeof s?.row === "number" && typeof s?.col === "number"){
+              map.set(`${s.row}-${s.col}`, s.studentId ?? null);
+            }
+          }
+        }
+        state.seats = makeSeats(state.layout.rows, state.layout.cols).map(seat => ({
+          ...seat,
+          studentId: map.get(`${seat.row}-${seat.col}`) ?? null
+        }));
+        cleanupSeatInvalidStudentIds();
+      }
+
+      function cleanupSeatInvalidStudentIds(){
+        const ids = new Set(state.students.map(s => s.id));
+        state.seats = state.seats.map(seat => {
+          if (!seat.studentId) return seat;
+          return ids.has(seat.studentId) ? seat : ({ ...seat, studentId: null });
+        });
+      }
+
+      // -----------------------------
+      // Persistence
+      // -----------------------------
+      function loadData(){
+        const key = classKey();
+
+        const savedLayoutJson = localStorage.getItem(`layout-${key}`);
+        const savedStudentsJson = localStorage.getItem(`students-${key}`);
+        const savedSeatsJson = localStorage.getItem(`seats-${key}`);
+        const savedHistoryJson = localStorage.getItem(`history-${key}`);
+
+        // ★回転状態（クラスごとに保存）
+        const savedRotate = localStorage.getItem(`rotate-${key}`);
+        state.rotate180 = parseBool(savedRotate, state.rotate180);
+
+        state.layout = normalizeLayout(savedLayoutJson ? safeParse(savedLayoutJson, state.layout) : state.layout);
+
+        if (savedStudentsJson){
+          state.students = safeParse(savedStudentsJson, []);
+        } else {
+          state.students = makeSampleStudents(key, state.selectedGrade, state.selectedClass);
+        }
+
+        let savedSeats = null;
+        if (savedSeatsJson){
+          savedSeats = safeParse(savedSeatsJson, []);
+          state.seats = Array.isArray(savedSeats) ? savedSeats : [];
+        } else {
+          state.seats = [];
+        }
+        ensureSeatsMatchLayout(savedSeats);
+
+        if (savedHistoryJson){
+          state.history = safeParse(savedHistoryJson, []);
+        } else {
+          state.history = [];
+        }
+
+        el.inputRows.value = String(state.layout.rows);
+        el.inputCols.value = String(state.layout.cols);
+      }
+
+      function persistData(){
+        const key = classKey();
+        localStorage.setItem(`students-${key}`, JSON.stringify(state.students));
+        localStorage.setItem(`seats-${key}`, JSON.stringify(state.seats));
+        localStorage.setItem(`layout-${key}`, JSON.stringify(state.layout));
+        localStorage.setItem(`history-${key}`, JSON.stringify(state.history));
+        localStorage.setItem(`rotate-${key}`, String(state.rotate180)); // ★回転保存
+      }
+
+      // -----------------------------
+      // History
+      // -----------------------------
+      function saveToHistory(description){
+        const item = {
+          id: Date.now(),
+          date: new Date().toLocaleString("ja-JP"),
+          description: String(description || ""),
+          seatArrangement: deepClone(state.seats),
+          students: deepClone(state.students)
+        };
+        state.history = [item, ...state.history].slice(0, 20);
+        persistData();
+        render();
+      }
+
+      function restoreFromHistory(item){
+        state.seats = deepClone(item.seatArrangement || []);
+        state.students = deepClone(item.students || []);
+        ensureSeatsMatchLayout(state.seats);
+        state.showHistory = false;
+        persistData();
+        render();
+      }
+
+      function deleteHistory(id){
+        state.history = state.history.filter(h => h.id !== id);
+        persistData();
+        render();
+      }
+
+      // -----------------------------
+      // Students CRUD
+      // -----------------------------
+      function addStudent(){
+        const key = classKey();
+        const maxAtt = state.students.reduce((m, s) => Math.max(m, Number(s.attendanceNumber) || 0), 0);
+        const newStudent = {
+          id: `${key}-${Date.now()}`,
+          name: "新しい生徒",
+          attendanceNumber: maxAtt + 1,
+          grade: state.selectedGrade,
+          classNumber: state.selectedClass
+        };
+        state.students.push(newStudent);
+        persistData();
+        render();
+      }
+
+      function updateStudent(id, field, value){
+        state.students = state.students.map(s => s.id === id ? ({ ...s, [field]: value }) : s);
+        persistData();
+        render();
+      }
+
+      function deleteStudent(id){
+        state.students = state.students.filter(s => s.id !== id);
+        state.seats = state.seats.map(seat => seat.studentId === id ? ({ ...seat, studentId: null }) : seat);
+        persistData();
+        render();
+      }
+
+      // -----------------------------
+      // Seating operations
+      // -----------------------------
+      function removeSeat(row, col){
+        const idx = seatIndex(row, col);
+        if (!state.seats[idx]) return;
+        state.seats[idx] = { ...state.seats[idx], studentId: null };
+        persistData();
+        render();
+      }
+
+      function shuffleArray(arr){
+        const a = arr.slice();
+        for (let i=a.length-1; i>0; i--){
+          const j = Math.floor(Math.random() * (i+1));
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      }
+
+      function autoArrange(){
+        const shuffled = shuffleArray(state.students);
+        state.seats = state.seats.map((seat, i) => ({
+          ...seat,
+          studentId: shuffled[i]?.id || null
+        }));
+        saveToHistory("自動配置を実行");
+      }
+
+      function clearAll(){
+        state.seats = state.seats.map(seat => ({ ...seat, studentId: null }));
+        saveToHistory("全座席をクリア");
+      }
+
+      // -----------------------------
+      // Drag & Drop
+      // -----------------------------
+      function onDragStartFromSeat(studentId, row, col){
+        state.draggedStudentId = studentId;
+        state.draggedFromSeat = { row, col };
+      }
+
+      function onDragStartFromList(studentId){
+        state.draggedStudentId = studentId;
+        state.draggedFromSeat = null;
+      }
+
+      function cleanupDrag(){
+        state.draggedStudentId = null;
+        state.draggedFromSeat = null;
+      }
+
+      function handleDrop(row, col){
+        const draggedId = state.draggedStudentId;
+        if (!draggedId) return;
+
+        const targetIdx = seatIndex(row, col);
+        const targetSeat = state.seats[targetIdx];
+        if (!targetSeat){ cleanupDrag(); return; }
+
+        const targetStudentId = targetSeat.studentId;
+        const seats = state.seats.map(s => ({ ...s }));
+
+        if (state.draggedFromSeat){
+          const fromIdx = seatIndex(state.draggedFromSeat.row, state.draggedFromSeat.col);
+          if (fromIdx === targetIdx){ cleanupDrag(); return; }
+
+          if (targetStudentId){
+            seats[fromIdx].studentId = targetStudentId;
+            seats[targetIdx].studentId = draggedId;
+          } else {
+            seats[fromIdx].studentId = null;
+            seats[targetIdx].studentId = draggedId;
+          }
+        } else {
+          for (const s of seats){
+            if (s.studentId === draggedId) s.studentId = null;
+          }
+          seats[targetIdx].studentId = draggedId;
+        }
+
+        state.seats = seats;
+        cleanupDrag();
+        persistData();
+        render();
+      }
+
+      // -----------------------------
+      // CSV export/import
+      // -----------------------------
+      function exportCSV(){
+        try{
+          const headers = ["出席番号","名前","座席(行)","座席(列)"];
+          const rows = state.students.map(st => {
+            const seat = assignedSeatOfStudent(st.id);
+            const name = String(st.name || "").replace(/"/g, '""');
+            return [
+              st.attendanceNumber ?? "",
+              `"${name}"`,
+              seat ? (seat.row + 1) : "",
+              seat ? (seat.col + 1) : ""
+            ];
+          });
+          const csv = [headers, ...rows].map(r => r.join(",")).join("\n");
+          const blob = new Blob(["\uFEFF" + csv], { type:"text/csv;charset=utf-8;" });
+
+          const filename = `座席表_${state.selectedGrade}年${state.selectedClass}組_${new Date().toISOString().slice(0,10)}.csv`;
+
+          if (window.navigator && window.navigator.msSaveOrOpenBlob){
+            window.navigator.msSaveOrOpenBlob(blob, filename);
+          } else {
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(url), 100);
+          }
+          alert("CSV出力が完了しました");
+        }catch(err){
+          console.error("CSV出力エラー:", err);
+          alert("CSV出力に失敗しました。ブラウザの設定でダウンロードが許可されているか確認してください。");
+        }
+      }
+
+      function parseCSVLine(line){
+        const matches = line.match(/(".*?"|[^,]+)(?=\s*,|\s*$)/g);
+        if (!matches) return [];
+        return matches.map(s => s.trim());
+      }
+
+      function importStudentsCSV(file){
+        if (!file) return;
+
+        if (file.size > 5 * 1024 * 1024){
+          alert("ファイルサイズが大きすぎます。5MB以下のファイルを選択してください。");
+          el.inputStudentsCsv.value = "";
+          return;
+        }
+
+        const encoding = state.csvEncoding || "UTF-8";
+        const reader = new FileReader();
+
+        reader.onerror = () => {
+          alert("ファイルの読み込みに失敗しました。");
+          el.inputStudentsCsv.value = "";
+        };
+
+        reader.onload = (e) => {
+          try{
+            const text = e.target?.result;
+            if (typeof text !== "string") throw new Error("ファイル内容が不正です");
+
+            const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+            const lines = normalized.split("\n").filter(line => line.trim().length > 0);
+
+            if (lines.length === 0){
+              alert("CSVファイルが空です。");
+              el.inputStudentsCsv.value = "";
+              return;
+            }
+
+            const dataLines = lines.slice(1);
+            if (dataLines.length === 0){
+              alert("データが含まれていません。ヘッダー行の下にデータを入力してください。");
+              el.inputStudentsCsv.value = "";
+              return;
+            }
+
+            const key = classKey();
+            const imported = [];
+            const errors = [];
+
+            dataLines.forEach((line, idx) => {
+              const lineNum = idx + 2;
+              const cols = parseCSVLine(line);
+              if (!cols || cols.length < 2){
+                errors.push(`${lineNum}行目: データ形式が不正です`);
+                return;
+              }
+
+              const attendanceRaw = cols[0].replace(/^"|"$/g, "");
+              const nameRaw = cols[1].replace(/^"|"$/g, "");
+
+              if (!attendanceRaw || !nameRaw){
+                errors.push(`${lineNum}行目: 出席番号または名前が空です`);
+                return;
+              }
+
+              const att = parseInt(attendanceRaw, 10);
+              if (Number.isNaN(att) || att < 1){
+                errors.push(`${lineNum}行目: 出席番号が不正です（${attendanceRaw}）`);
+                return;
+              }
+
+              imported.push({
+                id: `${key}-${Date.now()}-${idx}`,
+                name: nameRaw,
+                attendanceNumber: att,
+                grade: state.selectedGrade,
+                classNumber: state.selectedClass
+              });
+            });
+
+            if (errors.length > 0){
+              const proceed = window.confirm(
+                `以下のエラーがあります:\n${errors.slice(0,5).join("\n")}` +
+                `${errors.length > 5 ? `\n...他${errors.length - 5}件` : ""}` +
+                `\n\n正常なデータ（${imported.length}件）のみインポートしますか？`
+              );
+              if (!proceed){
+                el.inputStudentsCsv.value = "";
+                return;
+              }
+            }
+
+            if (imported.length === 0){
+              alert("インポート可能なデータがありませんでした。");
+              el.inputStudentsCsv.value = "";
+              return;
+            }
+
+            const confirmMessage =
+              `${imported.length}名の生徒をインポートします。\n` +
+              `現在の生徒データ（${state.students.length}名）は削除され、座席配置もリセットされます。\n\nよろしいですか？`;
+
+            if (!window.confirm(confirmMessage)){
+              el.inputStudentsCsv.value = "";
+              return;
+            }
+
+            state.students = imported;
+            state.seats = state.seats.map(seat => ({ ...seat, studentId: null }));
+            saveToHistory(`CSV入力：${imported.length}名の生徒を登録`);
+
+            alert(`${imported.length}名の生徒を正常にインポートしました。`);
+          }catch(err){
+            console.error("CSV読み込みエラー:", err);
+            alert("CSVファイルの処理中にエラーが発生しました。\nファイル形式を確認してください。");
+          }finally{
+            el.inputStudentsCsv.value = "";
+          }
+        };
+
+        reader.readAsText(file, encoding);
+      }
+
+      // -----------------------------
+      // Rendering
+      // -----------------------------
+      function renderSidebar(){
+        el.classButtons.innerHTML = "";
+
+        [1,2,3].forEach(g => {
+          const block = document.createElement("div");
+          block.className = "grade-block";
+
+          const title = document.createElement("div");
+          title.className = "grade-title";
+          title.textContent = `${g}年次`;
+          block.appendChild(title);
+
+          const classCount = CLASS_STRUCTURE[g] || 0;
+          for (let c=1; c<=classCount; c++){
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "class-btn" + ((state.selectedGrade === g && state.selectedClass === c) ? " active" : "");
+            btn.textContent = `${c}組`;
+            btn.addEventListener("click", () => {
+              state.selectedGrade = g;
+              state.selectedClass = c;
+              loadData();
+              persistData();
+              render();
+            });
+            block.appendChild(btn);
+          }
+
+          el.classButtons.appendChild(block);
+        });
+      }
+
+      function renderTop(){
+        el.classTitle.textContent = `${state.selectedGrade}年${state.selectedClass}組`;
+
+        if (state.view === "seating"){
+          el.btnViewSeating.classList.remove("gray");
+          el.btnViewSeating.classList.add("blue");
+          el.btnViewStudents.classList.remove("blue");
+          el.btnViewStudents.classList.add("gray");
+          el.controlsSeating.classList.remove("hidden");
+          el.controlsStudents.classList.add("hidden");
+          el.viewSeating.classList.remove("hidden");
+          el.viewStudents.classList.add("hidden");
+        } else {
+          el.btnViewStudents.classList.remove("gray");
+          el.btnViewStudents.classList.add("blue");
+          el.btnViewSeating.classList.remove("blue");
+          el.btnViewSeating.classList.add("gray");
+          el.controlsStudents.classList.remove("hidden");
+          el.controlsSeating.classList.add("hidden");
+          el.viewStudents.classList.remove("hidden");
+          el.viewSeating.classList.add("hidden");
+        }
+
+        el.historyCount.textContent = String(state.history.length);
+
+        // ★回転表示の更新
+        el.rotateState.textContent = state.rotate180 ? "ON" : "OFF";
+        el.btnToggleRotate.classList.toggle("outline", true);
+      }
+
+      function renderSeating(){
+        el.seatingGrid.style.gridTemplateColumns = `repeat(${state.layout.cols}, minmax(0, 1fr))`;
+
+        // ★回転クラスの付け外し（グリッド & 教卓の並び）
+        el.seatingGrid.classList.toggle("rot180", state.rotate180);
+        el.seatingCard.classList.toggle("rot180", state.rotate180);
+
+        el.seatingGrid.innerHTML = "";
+
+        for (const seat of state.seats){
+          const cell = document.createElement("div");
+          cell.className = "seat";
+          cell.dataset.row = String(seat.row);
+          cell.dataset.col = String(seat.col);
+
+          cell.addEventListener("dragover", (e) => e.preventDefault());
+          cell.addEventListener("drop", () => handleDrop(seat.row, seat.col));
+
+          const st = seat.studentId ? state.students.find(s => s.id === seat.studentId) : null;
+
+          if (st){
+            const card = document.createElement("div");
+            card.className = "seat-card";
+            card.draggable = true;
+            card.addEventListener("dragstart", () => onDragStartFromSeat(st.id, seat.row, seat.col));
+
+            const rm = document.createElement("button");
+            rm.type = "button";
+            rm.className = "seat-remove";
+            rm.textContent = "×";
+            rm.addEventListener("click", (e) => {
+              e.stopPropagation();
+              removeSeat(seat.row, seat.col);
+            });
+
+            const num = document.createElement("div");
+            num.className = "num";
+            num.textContent = String(st.attendanceNumber ?? "");
+
+            const name = document.createElement("div");
+            name.className = "name";
+            name.textContent = String(st.name ?? "");
+
+            card.appendChild(rm);
+            card.appendChild(num);
+            card.appendChild(name);
+            cell.appendChild(card);
+          } else {
+            const coord = document.createElement("div");
+            coord.className = "coord";
+            coord.textContent = `${seat.row + 1}-${seat.col + 1}`;
+            cell.appendChild(coord);
+          }
+
+          el.seatingGrid.appendChild(cell);
+        }
+
+        const unassigned = unassignedStudents();
+        el.unassignedList.innerHTML = "";
+
+        if (unassigned.length === 0){
+          const note = document.createElement("div");
+          note.className = "empty-note";
+          note.textContent = "全員配置済み";
+          el.unassignedList.appendChild(note);
+        } else {
+          for (const st of unassigned){
+            const pill = document.createElement("div");
+            pill.className = "student-pill";
+            pill.draggable = true;
+            pill.addEventListener("dragstart", () => onDragStartFromList(st.id));
+
+            const name = document.createElement("div");
+            name.className = "pill-name";
+            name.textContent = String(st.name ?? "");
+
+            const sub = document.createElement("div");
+            sub.className = "pill-sub";
+            sub.textContent = `出席番号: ${st.attendanceNumber ?? ""}`;
+
+            pill.appendChild(name);
+            pill.appendChild(sub);
+            el.unassignedList.appendChild(pill);
+          }
+        }
+      }
+
+      function renderStudents(){
+        el.studentsCount.textContent = `学生一覧 (${state.students.length}名)`;
+        el.studentsTbody.innerHTML = "";
+
+        for (const st of state.students){
+          const tr = document.createElement("tr");
+          const seat = assignedSeatOfStudent(st.id);
+
+          const tdAtt = document.createElement("td");
+          const inputAtt = document.createElement("input");
+          inputAtt.className = "cell-input cell-num";
+          inputAtt.type = "number";
+          inputAtt.value = (st.attendanceNumber ?? "");
+          inputAtt.addEventListener("change", () => {
+            const n = parseInt(inputAtt.value, 10);
+            updateStudent(st.id, "attendanceNumber", Number.isNaN(n) ? null : n);
+          });
+          tdAtt.appendChild(inputAtt);
+
+          const tdName = document.createElement("td");
+          const inputName = document.createElement("input");
+          inputName.className = "cell-input";
+          inputName.type = "text";
+          inputName.value = (st.name ?? "");
+          inputName.addEventListener("input", () => {
+            updateStudent(st.id, "name", inputName.value);
+          });
+          tdName.appendChild(inputName);
+
+          const tdSeat = document.createElement("td");
+          tdSeat.textContent = seat ? `${seat.row + 1}行${seat.col + 1}列` : "未配置";
+
+          const tdAct = document.createElement("td");
+          const btnDel = document.createElement("button");
+          btnDel.type = "button";
+          btnDel.className = "danger-mini";
+          btnDel.textContent = "削除";
+          btnDel.addEventListener("click", () => {
+            if (window.confirm(`「${st.name}」を削除しますか？\n（座席に配置されている場合は解除されます）`)){
+              deleteStudent(st.id);
+            }
+          });
+          tdAct.appendChild(btnDel);
+
+          tr.appendChild(tdAtt);
+          tr.appendChild(tdName);
+          tr.appendChild(tdSeat);
+          tr.appendChild(tdAct);
+
+          el.studentsTbody.appendChild(tr);
+        }
+      }
+
+      function renderHistoryModal(){
+        if (!state.showHistory){
+          el.historyModal.classList.add("hidden");
+          return;
+        }
+        el.historyModal.classList.remove("hidden");
+        el.historyBody.innerHTML = "";
+
+        if (!state.history || state.history.length === 0){
+          const empty = document.createElement("div");
+          empty.className = "history-empty";
+          empty.innerHTML = `
+            <div>
+              <div style="font-size:44px; line-height:1; margin-bottom:10px;">🕘</div>
+              <div style="font-size:16px; font-weight:950;">履歴がありません</div>
+              <div style="margin-top:6px; font-size:12px; font-weight:850; opacity:.9;">
+                座席配置を保存すると、ここに履歴が表示されます
+              </div>
+            </div>
+          `;
+          el.historyBody.appendChild(empty);
+          el.historyFoot.classList.add("hidden");
+          return;
+        }
+
+        const wrap = document.createElement("div");
+        wrap.style.display = "flex";
+        wrap.style.flexDirection = "column";
+        wrap.style.gap = "10px";
+
+        state.history.forEach((item, idx) => {
+          const assignedCount = (item.seatArrangement || []).filter(s => s.studentId).length;
+          const studentCount = (item.students || []).length;
+
+          const card = document.createElement("div");
+          card.className = "history-item";
+
+          const left = document.createElement("div");
+          left.className = "history-left";
+
+          const badge = document.createElement("div");
+          badge.className = "badge";
+
+          const no = document.createElement("span");
+          no.textContent = `#${state.history.length - idx}`;
+          badge.appendChild(no);
+
+          const title = document.createElement("h4");
+          title.className = "history-title";
+          title.textContent = item.description || "(無題)";
+
+          left.appendChild(badge);
+          left.appendChild(title);
+
+          const meta = document.createElement("div");
+          meta.className = "history-meta";
+          meta.innerHTML = `
+            <div>🕒 ${item.date || ""}</div>
+            <div>🪑 配置数: <strong style="color:#0f172a;">${assignedCount}席</strong></div>
+            <div>👥 生徒数: <strong style="color:#0f172a;">${studentCount}名</strong></div>
+          `;
+          left.appendChild(meta);
+
+          const actions = document.createElement("div");
+          actions.className = "history-actions";
+
+          const btnRestore = document.createElement("button");
+          btnRestore.type = "button";
+          btnRestore.className = "mini blue";
+          btnRestore.textContent = "↩️ 復元";
+          btnRestore.addEventListener("click", () => restoreFromHistory(item));
+
+          const btnDelete = document.createElement("button");
+          btnDelete.type = "button";
+          btnDelete.className = "mini red";
+          btnDelete.textContent = "🗑️ 削除";
+          btnDelete.addEventListener("click", () => {
+            if (window.confirm("この履歴を削除しますか？")){
+              deleteHistory(item.id);
+            }
+          });
+
+          actions.appendChild(btnRestore);
+          actions.appendChild(btnDelete);
+
+          card.appendChild(left);
+          card.appendChild(actions);
+
+          wrap.appendChild(card);
+        });
+
+        el.historyBody.appendChild(wrap);
+
+        el.historyFoot.classList.remove("hidden");
+        el.historyFoot.textContent = `全 ${state.history.length} 件の履歴 （最新20件まで保存）`;
+      }
+
+      function render(){
+        renderSidebar();
+        renderTop();
+        renderSeating();
+        renderStudents();
+        renderHistoryModal();
+      }
+
+      // -----------------------------
+      // Event wiring
+      // -----------------------------
+      el.btnViewSeating.addEventListener("click", () => {
+        state.view = "seating";
+        render();
+      });
+
+      el.btnViewStudents.addEventListener("click", () => {
+        state.view = "students";
+        render();
+      });
+
+      el.btnAutoArrange.addEventListener("click", autoArrange);
+      el.btnClearAll.addEventListener("click", () => {
+        if (window.confirm("全座席をクリアしますか？")){
+          clearAll();
+        }
+      });
+
+      el.btnSaveHistory.addEventListener("click", () => saveToHistory("手動保存"));
+
+      el.btnToggleHistory.addEventListener("click", () => {
+        state.showHistory = !state.showHistory;
+        renderHistoryModal();
+      });
+
+      el.btnCloseHistory.addEventListener("click", () => {
+        state.showHistory = false;
+        renderHistoryModal();
+      });
+
+      el.historyModal.addEventListener("click", (e) => {
+        if (e.target === el.historyModal){
+          state.showHistory = false;
+          renderHistoryModal();
+        }
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && state.showHistory){
+          state.showHistory = false;
+          renderHistoryModal();
+        }
+      });
+
+      el.btnExportCsvSeating.addEventListener("click", exportCSV);
+      el.btnExportCsvStudents.addEventListener("click", exportCSV);
+
+      el.btnAddStudent.addEventListener("click", addStudent);
+
+      el.selectEncoding.addEventListener("change", () => {
+        state.csvEncoding = el.selectEncoding.value || "UTF-8";
+      });
+
+      el.inputStudentsCsv.addEventListener("change", () => {
+        const file = el.inputStudentsCsv.files && el.inputStudentsCsv.files[0];
+        importStudentsCSV(file);
+      });
+
+      // ★回転 ON/OFF
+      el.btnToggleRotate.addEventListener("click", () => {
+        state.rotate180 = !state.rotate180;
+        persistData();
+        render();
+      });
+
+      // Layout changes: reset seats
+      function applyLayoutChange(){
+        const rows = clampInt(el.inputRows.value, 1, 10, state.layout.rows);
+        const cols = clampInt(el.inputCols.value, 1, 10, state.layout.cols);
+
+        const newLayout = { rows, cols };
+        const changed = (newLayout.rows !== state.layout.rows) || (newLayout.cols !== state.layout.cols);
+        if (!changed) return;
+
+        const ok = window.confirm("行・列を変更すると、座席配置はリセットされます。\nよろしいですか？");
+        if (!ok){
+          el.inputRows.value = String(state.layout.rows);
+          el.inputCols.value = String(state.layout.cols);
+          return;
+        }
+
+        state.layout = newLayout;
+        state.seats = makeSeats(state.layout.rows, state.layout.cols);
+        persistData();
+        render();
+      }
+
+      el.inputRows.addEventListener("change", applyLayoutChange);
+      el.inputCols.addEventListener("change", applyLayoutChange);
+
+      // -----------------------------
+      // Init
+      // -----------------------------
+      loadData();
+      persistData();
+      render();
+    })();
+  </script>
+</body>
+</html>
