@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>座席表管理（Teams向け）</title>
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./app.js" defer></script>
+</head>
+
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div>
+          <h1>明石南高校　オンライン座席表管理システム</h1>
+          <p>Teams埋め込み対応（クリック配置/交換 + 回転ON/OFF + CSV + 履歴）</p>
+        </div>
+        <div id="envBanner" class="env-banner hidden"></div>
+      </div>
+    </header>
+
+    <div class="content">
+      <aside class="sidebar">
+        <div class="sidebar-inner">
+          <h2>クラス選択</h2>
+          <div id="classButtons"></div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <div class="main-inner">
+          <div class="card controls-card">
+            <div class="controls-header">
+              <h2 id="classTitle">-</h2>
+              <div class="view-switch">
+                <button id="btnViewSeating" class="btn blue" type="button">🪑 座席表</button>
+                <button id="btnViewStudents" class="btn gray" type="button">👥 学生管理</button>
+              </div>
+            </div>
+
+            <!-- Seating controls -->
+            <div id="controlsSeating" class="controls-row">
+              <button id="btnAutoArrange" class="btn green" type="button">🔀 自動配置</button>
+              <button id="btnClearAll" class="btn red" type="button">🧹 全クリア</button>
+              <button id="btnSaveHistory" class="btn blue" type="button">💾 履歴保存</button>
+              <button id="btnToggleHistory" class="btn purple" type="button">
+                🕘 履歴 (<span id="historyCount">0</span>)
+              </button>
+
+              <button id="btnToggleRotate" class="btn outline" type="button" aria-pressed="true">
+                🔄 回転: <span id="rotateState">ON</span>
+              </button>
+
+              <button id="btnExportCsvSeating" class="btn orange" type="button">⬇️ CSV出力</button>
+
+              <div class="field" title="行・列を変えると座席配置はリセットされます">
+                行:
+                <input id="inputRows" type="number" min="1" max="10" value="6" />
+                列:
+                <input id="inputCols" type="number" min="1" max="10" value="6" />
+              </div>
+            </div>
+
+            <!-- Students controls -->
+            <div id="controlsStudents" class="controls-row hidden">
+              <button id="btnAddStudent" class="btn blue" type="button">➕ 学生追加</button>
+
+              <label class="btn green" for="inputStudentsCsv" style="cursor:pointer;">
+                ⬆️ CSV入力
+              </label>
+              <input id="inputStudentsCsv" type="file" accept=".csv" class="hidden" />
+
+              <div class="field">
+                文字コード:
+                <select id="selectEncoding">
+                  <option value="UTF-8">UTF-8</option>
+                  <option value="Shift_JIS">Shift_JIS</option>
+                </select>
+              </div>
+
+              <button id="btnExportCsvStudents" class="btn orange" type="button">⬇️ CSV出力</button>
+            </div>
+          </div>
+
+          <!-- Seating view -->
+          <section id="viewSeating">
+            <div class="grid-3col">
+              <div>
+                <div id="seatingCard" class="card seating-card">
+                  <div class="teacher-desk">教卓</div>
+                  <div id="seatingGrid" class="seating-grid"></div>
+                </div>
+              </div>
+
+              <div>
+                <div class="card unassigned-card">
+                  <div class="unassigned-head">
+                    <h3>未配置の学生</h3>
+                    <div class="hint">
+                      <div>✅ ドラッグが効かない環境でもOK：<b>クリック</b>で配置できます</div>
+                      <div>・生徒をクリック → 座席をクリック（配置）</div>
+                      <div>・座席の生徒をクリック → 別の座席をクリック（移動/交換）</div>
+                    </div>
+                    <div id="selectionInfo" class="selection-info hidden">
+                      <span id="selectionText"></span>
+                      <button id="btnClearSelection" type="button" class="mini-btn">キャンセル</button>
+                    </div>
+                  </div>
+                  <div id="unassignedList" class="unassigned-list"></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Students view -->
+          <section id="viewStudents" class="hidden">
+            <div class="card students-card">
+              <div class="students-head">
+                <h3 id="studentsCount">学生一覧 (0名)</h3>
+                <div class="hint">
+                  CSVフォーマット: <strong>出席番号,名前</strong>（ヘッダー行あり） 例: <code>1,山田太郎</code>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th style="width:120px;">出席番号</th>
+                      <th>名前</th>
+                      <th style="width:160px;">座席位置</th>
+                      <th style="width:120px;">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="studentsTbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- History Modal -->
+  <div id="historyModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
+    <div class="modal-panel">
+      <div class="modal-head">
+        <h3 id="historyTitle">座席配置履歴</h3>
+        <button id="btnCloseHistory" class="modal-close" type="button" aria-label="閉じる">×</button>
+      </div>
+      <div id="historyBody" class="modal-body"></div>
+      <div id="historyFoot" class="modal-foot hidden"></div>
+    </div>
+  </div>
+
+  <!-- CSV fallback Modal -->
+  <div id="csvModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="csvTitle">
+    <div class="modal-panel">
+      <div class="modal-head">
+        <h3 id="csvTitle">CSV（ダウンロードできない環境向け）</h3>
+        <button id="btnCloseCsv" class="modal-close" type="button" aria-label="閉じる">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="csv-note">Teams内でダウンロードがブロックされた可能性があります。以下をコピーして保存してください。</p>
+        <textarea id="csvText" class="csv-textarea" spellcheck="false"></textarea>
+        <div class="csv-actions">
+          <button id="btnCopyCsv" class="btn blue" type="button">📋 コピー</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
