@@ -169,6 +169,20 @@
       </div>
     </div>
   </div>
+
+  <!-- Custom Confirm Dialog (Teams等のiframe環境でwindow.confirm()が使えない場合の代替) -->
+  <div id="confirmDialog" class="confirm-overlay hidden" role="dialog" aria-modal="true">
+    <div class="confirm-box">
+      <p id="confirmMessage" class="confirm-msg"></p>
+      <div class="confirm-actions">
+        <button id="confirmCancel" class="btn" type="button">キャンセル</button>
+        <button id="confirmOk" class="btn danger" type="button">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 </body>
 </html>
 

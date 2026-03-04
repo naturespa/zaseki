@@ -526,6 +526,57 @@ tbody tr:hover{ background:#fafcff; }
 }
 .csv-actions{ margin-top:10px; display:flex; justify-content:flex-end; }
 
+/* Custom Confirm Dialog */
+.confirm-overlay{
+  position:fixed;
+  inset:0;
+  background:rgba(15,23,42,.5);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:200;
+}
+.confirm-overlay.hidden{ display:none; }
+.confirm-box{
+  background:#fff;
+  border-radius:12px;
+  padding:24px 28px;
+  max-width:360px;
+  width:90%;
+  box-shadow:0 8px 32px rgba(0,0,0,.2);
+}
+.confirm-msg{
+  margin:0 0 20px;
+  font-size:15px;
+  line-height:1.65;
+  white-space:pre-line;
+  color:#1e293b;
+}
+.confirm-actions{
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+}
+
+/* Toast Notification */
+.toast{
+  position:fixed;
+  bottom:28px;
+  left:50%;
+  transform:translateX(-50%);
+  background:#1e293b;
+  color:#fff;
+  padding:10px 22px;
+  border-radius:8px;
+  font-size:14px;
+  z-index:300;
+  pointer-events:none;
+  white-space:nowrap;
+  opacity:1;
+  transition:opacity .4s;
+}
+.toast.hidden{ opacity:0; }
+
 /* 回転 ON/OFF */
 .seating-grid.rot180{
   transform: rotate(180deg);

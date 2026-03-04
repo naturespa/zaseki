@@ -116,7 +116,48 @@
     btnCloseCsv: document.getElementById("btnCloseCsv"),
     btnCopyCsv: document.getElementById("btnCopyCsv"),
     csvText: document.getElementById("csvText"),
+
+    confirmDialog: document.getElementById("confirmDialog"),
+    confirmMessage: document.getElementById("confirmMessage"),
+    confirmOk: document.getElementById("confirmOk"),
+    confirmCancel: document.getElementById("confirmCancel"),
+    toast: document.getElementById("toast"),
   };
+
+  // ===== iframe検出（Teams等の埋め込み環境） =====
+  function isInIframe() {
+    try { return window.self !== window.top; } catch { return true; }
+  }
+
+  // ===== カスタム確認ダイアログ（window.confirm()の代替） =====
+  function showConfirm(message) {
+    return new Promise((resolve) => {
+      el.confirmMessage.textContent = message;
+      el.confirmDialog.classList.remove("hidden");
+      el.confirmOk.focus();
+
+      function cleanup(result) {
+        el.confirmDialog.classList.add("hidden");
+        el.confirmOk.removeEventListener("click", onOk);
+        el.confirmCancel.removeEventListener("click", onCancel);
+        resolve(result);
+      }
+      function onOk() { cleanup(true); }
+      function onCancel() { cleanup(false); }
+
+      el.confirmOk.addEventListener("click", onOk);
+      el.confirmCancel.addEventListener("click", onCancel);
+    });
+  }
+
+  // ===== トースト通知（alert()の代替） =====
+  let toastTimer = null;
+  function showToast(message) {
+    el.toast.textContent = message;
+    el.toast.classList.remove("hidden");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.toast.classList.add("hidden"), 2500);
+  }
 
   // ===== Utils =====
   const deepClone = (obj) => JSON.parse(JSON.stringify(obj));
@@ -524,7 +565,7 @@
 
       if (window.navigator && window.navigator.msSaveOrOpenBlob) {
         window.navigator.msSaveOrOpenBlob(blob, filename);
-        alert("CSV出力が完了しました");
+        showToast("CSV出力が完了しました");
         return;
       }
 
@@ -539,7 +580,7 @@
       document.body.removeChild(link);
       setTimeout(() => URL.revokeObjectURL(url), 150);
 
-      alert("CSV出力が完了しました");
+      showToast("CSV出力が完了しました");
     } catch (err) {
       console.warn("CSVダウンロード失敗:", err);
       openCsvModal(csv);
@@ -556,7 +597,7 @@
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      alert("ファイルサイズが大きすぎます。5MB以下のファイルを選択してください。");
+      showToast("ファイルサイズが大きすぎます。5MB以下のファイルを選択してください。");
       el.inputStudentsCsv.value = "";
       return;
     }
@@ -565,11 +606,11 @@
     const reader = new FileReader();
 
     reader.onerror = () => {
-      alert("ファイルの読み込みに失敗しました。");
+      showToast("ファイルの読み込みに失敗しました。");
       el.inputStudentsCsv.value = "";
     };
 
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const text = e.target?.result;
         if (typeof text !== "string") throw new Error("ファイル内容が不正です");
@@ -577,14 +618,14 @@
         const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
         const lines = normalized.split("\n").filter((line) => line.trim().length > 0);
         if (lines.length === 0) {
-          alert("CSVファイルが空です。");
+          showToast("CSVファイルが空です。");
           el.inputStudentsCsv.value = "";
           return;
         }
 
         const dataLines = lines.slice(1);
         if (dataLines.length === 0) {
-          alert("データが含まれていません。ヘッダー行の下にデータを入力してください。");
+          showToast("データが含まれていません。ヘッダー行の下にデータを入力してください。");
           el.inputStudentsCsv.value = "";
           return;
         }
@@ -625,7 +666,7 @@
         });
 
         if (errors.length > 0) {
-          const proceed = window.confirm(
+          const proceed = await showConfirm(
             `以下のエラーがあります:\n${errors.slice(0, 5).join("\n")}` +
             `${errors.length > 5 ? `\n...他${errors.length - 5}件` : ""}` +
             `\n\n正常なデータ（${imported.length}件）のみインポートしますか？`
@@ -637,7 +678,7 @@
         }
 
         if (imported.length === 0) {
-          alert("インポート可能なデータがありませんでした。");
+          showToast("インポート可能なデータがありませんでした。");
           el.inputStudentsCsv.value = "";
           return;
         }
@@ -646,7 +687,7 @@
           `${imported.length}名の生徒をインポートします。\n` +
           `現在の生徒データ（${state.students.length}名）は削除され、座席配置もリセットされます。\n\nよろしいですか？`;
 
-        if (!window.confirm(confirmMessage)) {
+        if (!await showConfirm(confirmMessage)) {
           el.inputStudentsCsv.value = "";
           return;
         }
@@ -656,10 +697,10 @@
         state.selection = null;
         saveToHistory(`CSV入力：${imported.length}名の生徒を登録`);
 
-        alert(`${imported.length}名の生徒を正常にインポートしました。`);
+        showToast(`${imported.length}名の生徒を正常にインポートしました。`);
       } catch (err) {
         console.error("CSV読み込みエラー:", err);
-        alert("CSVファイルの処理中にエラーが発生しました。\nファイル形式を確認してください。");
+        showToast("CSVファイルの処理中にエラーが発生しました。\nファイル形式を確認してください。");
       } finally {
         el.inputStudentsCsv.value = "";
       }
@@ -888,8 +929,8 @@
       btnDel.type = "button";
       btnDel.className = "danger-mini";
       btnDel.textContent = "削除";
-      btnDel.addEventListener("click", () => {
-        if (window.confirm(`「${st.name}」を削除しますか？\n（座席に配置されている場合は解除されます）`)) {
+      btnDel.addEventListener("click", async () => {
+        if (await showConfirm(`「${st.name}」を削除しますか？\n（座席に配置されている場合は解除されます）`)) {
           deleteStudent(st.id);
         }
       });
@@ -971,8 +1012,8 @@
       btnDelete.type = "button";
       btnDelete.className = "mini red";
       btnDelete.textContent = "🗑️ 削除";
-      btnDelete.addEventListener("click", () => {
-        if (window.confirm("この履歴を削除しますか？")) deleteHistory(item.id);
+      btnDelete.addEventListener("click", async () => {
+        if (await showConfirm("この履歴を削除しますか？")) deleteHistory(item.id);
       });
 
       actions.appendChild(btnRestore);
@@ -1004,8 +1045,8 @@
 
   el.btnAutoArrange.addEventListener("click", autoArrange);
 
-  el.btnClearAll.addEventListener("click", () => {
-    if (window.confirm("全座席をクリアしますか？")) clearAll();
+  el.btnClearAll.addEventListener("click", async () => {
+    if (await showConfirm("全座席をクリアしますか？")) clearAll();
   });
 
   el.btnSaveHistory.addEventListener("click", () => saveToHistory("手動保存"));
@@ -1058,13 +1099,13 @@
   el.btnClearSelection.addEventListener("click", clearSelection);
 
   // Layout change
-  function applyLayoutChange() {
+  async function applyLayoutChange() {
     const rows = clampInt(el.inputRows.value, 1, 10, state.layout.rows);
     const cols = clampInt(el.inputCols.value, 1, 10, state.layout.cols);
     const changed = rows !== state.layout.rows || cols !== state.layout.cols;
     if (!changed) return;
 
-    if (!window.confirm("行・列を変更すると、座席配置はリセットされます。\nよろしいですか？")) {
+    if (!await showConfirm("行・列を変更すると、座席配置はリセットされます。\nよろしいですか？")) {
       el.inputRows.value = String(state.layout.rows);
       el.inputCols.value = String(state.layout.cols);
       return;
@@ -1088,12 +1129,12 @@
   el.btnCopyCsv.addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText(el.csvText.value);
-      alert("コピーしました");
+      showToast("コピーしました");
     } catch {
       // fallback
       el.csvText.focus();
       el.csvText.select();
-      alert("クリップボードに直接書き込めませんでした。選択状態にしたので Ctrl+C でコピーしてください。");
+      showToast("クリップボードに直接書き込めませんでした。選択状態にしたので Ctrl+C でコピーしてください。");
     }
   });
 
