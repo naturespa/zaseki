@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>座席表管理（Teams向け）</title>
+  <title>座席表管理</title>
   <link rel="stylesheet" href="./style.css">
   <script src="./app.js" defer></script>
 </head>
@@ -97,7 +97,7 @@
                   <div class="unassigned-head">
                     <h3>未配置の学生</h3>
                     <div class="hint">
-                      <div>✅ ドラッグが効かない環境でもOK：<b>クリック</b>で配置できます</div>
+                      <div>ドラッグまたはクリックで配置できます</div>
                       <div>・生徒をクリック → 座席をクリック（配置）</div>
                       <div>・座席の生徒をクリック → 別の座席をクリック（移動/交換）</div>
                     </div>
@@ -157,11 +157,11 @@
   <div id="csvModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="csvTitle">
     <div class="modal-panel">
       <div class="modal-head">
-        <h3 id="csvTitle">CSV（ダウンロードできない環境向け）</h3>
+        <h3 id="csvTitle">CSVテキスト</h3>
         <button id="btnCloseCsv" class="modal-close" type="button" aria-label="閉じる">×</button>
       </div>
       <div class="modal-body">
-        <p class="csv-note">Teams内でダウンロードがブロックされた可能性があります。以下をコピーして保存してください。</p>
+        <p class="csv-note">ダウンロードできない場合は、以下をコピーして保存してください。</p>
         <textarea id="csvText" class="csv-textarea" spellcheck="false"></textarea>
         <div class="csv-actions">
           <button id="btnCopyCsv" class="btn blue" type="button">📋 コピー</button>
@@ -169,7 +169,20 @@
       </div>
     </div>
   </div>
+
+  <!-- Custom Confirm Dialog (Teams等のiframe環境でwindow.confirm()が使えない場合の代替) -->
+  <div id="confirmDialog" class="confirm-overlay hidden" role="dialog" aria-modal="true">
+    <div class="confirm-box">
+      <p id="confirmMessage" class="confirm-msg"></p>
+      <div class="confirm-actions">
+        <button id="confirmCancel" class="btn" type="button">キャンセル</button>
+        <button id="confirmOk" class="btn danger" type="button">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 </body>
 </html>
-
 

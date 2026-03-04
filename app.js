@@ -3,7 +3,7 @@
 
   const CLASS_STRUCTURE = { 1: 7, 2: 7, 3: 8 };
 
-  // ===== Storage Adapter（Teams埋め込みでlocalStorageが死んでも落ちない）=====
+  // ===== Storage Adapter（localStorage が使えない環境でも落ちないようにフォールバック）=====
   function createStorageAdapter() {
     const mem = new Map();
 
@@ -116,7 +116,48 @@
     btnCloseCsv: document.getElementById("btnCloseCsv"),
     btnCopyCsv: document.getElementById("btnCopyCsv"),
     csvText: document.getElementById("csvText"),
+
+    confirmDialog: document.getElementById("confirmDialog"),
+    confirmMessage: document.getElementById("confirmMessage"),
+    confirmOk: document.getElementById("confirmOk"),
+    confirmCancel: document.getElementById("confirmCancel"),
+    toast: document.getElementById("toast"),
   };
+
+  // ===== iframe検出（Teams等の埋め込み環境） =====
+  function isInIframe() {
+    try { return window.self !== window.top; } catch { return true; }
+  }
+
+  // ===== カスタム確認ダイアログ（window.confirm()の代替） =====
+  function showConfirm(message) {
+    return new Promise((resolve) => {
+      el.confirmMessage.textContent = message;
+      el.confirmDialog.classList.remove("hidden");
+      el.confirmOk.focus();
+
+      function cleanup(result) {
+        el.confirmDialog.classList.add("hidden");
+        el.confirmOk.removeEventListener("click", onOk);
+        el.confirmCancel.removeEventListener("click", onCancel);
+        resolve(result);
+      }
+      function onOk() { cleanup(true); }
+      function onCancel() { cleanup(false); }
+
+      el.confirmOk.addEventListener("click", onOk);
+      el.confirmCancel.addEventListener("click", onCancel);
+    });
+  }
+
+  // ===== トースト通知（alert()の代替） =====
+  let toastTimer = null;
+  function showToast(message) {
+    el.toast.textContent = message;
+    el.toast.classList.remove("hidden");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.toast.classList.add("hidden"), 2500);
+  }
 
   // ===== Utils =====
   const deepClone = (obj) => JSON.parse(JSON.stringify(obj));
@@ -221,19 +262,8 @@
   }
 
   function showEnvBannerIfNeeded() {
-    // Teams埋め込みでは storage が memory になることが多い
-    const msgs = [];
     if (storage.type === "memory") {
-      msgs.push("この表示環境では保存領域(localStorage等)が利用できません。データは保持されない可能性があります。");
-    }
-    // iframe内はドラッグが効かないことがあるので案内
-    let inIframe = false;
-    try { inIframe = window.top !== window.self; } catch { inIframe = true; }
-    if (inIframe) {
-      msgs.push("埋め込み表示ではドラッグが無効な場合があります（クリック配置は利用できます）。");
-    }
-    if (msgs.length > 0) {
-      el.envBanner.textContent = msgs.join(" ");
+      el.envBanner.textContent = "この環境では保存領域(localStorage)が利用できません。ページを閉じるとデータが消える可能性があります。";
       el.envBanner.classList.remove("hidden");
     } else {
       el.envBanner.classList.add("hidden");
@@ -241,51 +271,82 @@
   }
 
   // ===== Persistence =====
-  function loadData() {
+  async function loadData() {
     const key = classKey();
+    let serverData = null;
 
-    const savedLayoutJson = storage.getItem(`layout-${key}`);
-    const savedStudentsJson = storage.getItem(`students-${key}`);
-    const savedSeatsJson = storage.getItem(`seats-${key}`);
-    const savedHistoryJson = storage.getItem(`history-${key}`);
-    const savedRotate = storage.getItem(`rotate-${key}`);
-
-    state.rotate180 = parseBool(savedRotate, state.rotate180);
-
-    state.layout = normalizeLayout(savedLayoutJson ? safeParse(savedLayoutJson, state.layout) : state.layout);
-
-    if (savedStudentsJson) {
-      state.students = safeParse(savedStudentsJson, []);
-    } else {
-      state.students = makeSampleStudents(key, state.selectedGrade, state.selectedClass);
+    try {
+      const res = await fetch(`/api/class/${state.selectedGrade}/${state.selectedClass}`);
+      if (res.ok) serverData = await res.json();
+    } catch {
+      // API 未接続時は localStorage にフォールバック
     }
 
-    let savedSeats = null;
-    if (savedSeatsJson) {
-      savedSeats = safeParse(savedSeatsJson, []);
-      state.seats = Array.isArray(savedSeats) ? savedSeats : [];
+    if (serverData) {
+      state.rotate180  = parseBool(serverData.rotate180, true);
+      state.layout     = normalizeLayout(serverData.layout || {});
+      state.students   = Array.isArray(serverData.students) ? serverData.students
+                          : makeSampleStudents(key, state.selectedGrade, state.selectedClass);
+      const savedSeats = Array.isArray(serverData.seats) ? serverData.seats : [];
+      state.seats      = savedSeats;
+      ensureSeatsMatchLayout(savedSeats);
+      state.history    = Array.isArray(serverData.history) ? serverData.history : [];
     } else {
-      state.seats = [];
-    }
-    ensureSeatsMatchLayout(savedSeats);
+      // localStorage フォールバック
+      const savedLayoutJson   = storage.getItem(`layout-${key}`);
+      const savedStudentsJson = storage.getItem(`students-${key}`);
+      const savedSeatsJson    = storage.getItem(`seats-${key}`);
+      const savedHistoryJson  = storage.getItem(`history-${key}`);
+      const savedRotate       = storage.getItem(`rotate-${key}`);
 
-    state.history = savedHistoryJson ? safeParse(savedHistoryJson, []) : [];
+      state.rotate180 = parseBool(savedRotate, state.rotate180);
+      state.layout    = normalizeLayout(savedLayoutJson ? safeParse(savedLayoutJson, state.layout) : state.layout);
+
+      if (savedStudentsJson) {
+        state.students = safeParse(savedStudentsJson, []);
+      } else {
+        state.students = makeSampleStudents(key, state.selectedGrade, state.selectedClass);
+      }
+
+      let savedSeats = null;
+      if (savedSeatsJson) {
+        savedSeats  = safeParse(savedSeatsJson, []);
+        state.seats = Array.isArray(savedSeats) ? savedSeats : [];
+      } else {
+        state.seats = [];
+      }
+      ensureSeatsMatchLayout(savedSeats);
+      state.history = savedHistoryJson ? safeParse(savedHistoryJson, []) : [];
+    }
 
     el.inputRows.value = String(state.layout.rows);
     el.inputCols.value = String(state.layout.cols);
-
-    state.selection = null;
-    state.draggedStudentId = null;
-    state.draggedFromSeat = null;
+    state.selection         = null;
+    state.draggedStudentId  = null;
+    state.draggedFromSeat   = null;
   }
 
   function persistData() {
     const key = classKey();
+    // localStorage キャッシュ（オフライン対応）
     storage.setItem(`students-${key}`, JSON.stringify(state.students));
-    storage.setItem(`seats-${key}`, JSON.stringify(state.seats));
-    storage.setItem(`layout-${key}`, JSON.stringify(state.layout));
-    storage.setItem(`history-${key}`, JSON.stringify(state.history));
-    storage.setItem(`rotate-${key}`, String(state.rotate180));
+    storage.setItem(`seats-${key}`,    JSON.stringify(state.seats));
+    storage.setItem(`layout-${key}`,   JSON.stringify(state.layout));
+    storage.setItem(`history-${key}`,  JSON.stringify(state.history));
+    storage.setItem(`rotate-${key}`,   String(state.rotate180));
+
+    // サーバーに保存（fire-and-forget）
+    fetch(`/api/class/${state.selectedGrade}/${state.selectedClass}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        layout:    state.layout,
+        students:  state.students,
+        seats:     state.seats,
+        history:   state.history,
+        rotate180: state.rotate180,
+      }),
+    }).catch(() => {}); // API 未接続時は無視
   }
 
   // ===== History =====
@@ -535,7 +596,7 @@
 
       if (window.navigator && window.navigator.msSaveOrOpenBlob) {
         window.navigator.msSaveOrOpenBlob(blob, filename);
-        alert("CSV出力が完了しました");
+        showToast("CSV出力が完了しました");
         return;
       }
 
@@ -544,15 +605,15 @@
       link.href = url;
       link.download = filename;
 
-      // Teams埋め込みで click が無効化される場合があるので try/catch
+      // ダウンロードが失敗する場合があるので try/catch
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       setTimeout(() => URL.revokeObjectURL(url), 150);
 
-      alert("CSV出力が完了しました");
+      showToast("CSV出力が完了しました");
     } catch (err) {
-      console.warn("CSVダウンロードがブロックされた可能性:", err);
+      console.warn("CSVダウンロード失敗:", err);
       openCsvModal(csv);
     }
   }
@@ -567,7 +628,7 @@
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
-      alert("ファイルサイズが大きすぎます。5MB以下のファイルを選択してください。");
+      showToast("ファイルサイズが大きすぎます。5MB以下のファイルを選択してください。");
       el.inputStudentsCsv.value = "";
       return;
     }
@@ -576,11 +637,11 @@
     const reader = new FileReader();
 
     reader.onerror = () => {
-      alert("ファイルの読み込みに失敗しました。");
+      showToast("ファイルの読み込みに失敗しました。");
       el.inputStudentsCsv.value = "";
     };
 
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const text = e.target?.result;
         if (typeof text !== "string") throw new Error("ファイル内容が不正です");
@@ -588,14 +649,14 @@
         const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
         const lines = normalized.split("\n").filter((line) => line.trim().length > 0);
         if (lines.length === 0) {
-          alert("CSVファイルが空です。");
+          showToast("CSVファイルが空です。");
           el.inputStudentsCsv.value = "";
           return;
         }
 
         const dataLines = lines.slice(1);
         if (dataLines.length === 0) {
-          alert("データが含まれていません。ヘッダー行の下にデータを入力してください。");
+          showToast("データが含まれていません。ヘッダー行の下にデータを入力してください。");
           el.inputStudentsCsv.value = "";
           return;
         }
@@ -636,7 +697,7 @@
         });
 
         if (errors.length > 0) {
-          const proceed = window.confirm(
+          const proceed = await showConfirm(
             `以下のエラーがあります:\n${errors.slice(0, 5).join("\n")}` +
             `${errors.length > 5 ? `\n...他${errors.length - 5}件` : ""}` +
             `\n\n正常なデータ（${imported.length}件）のみインポートしますか？`
@@ -648,7 +709,7 @@
         }
 
         if (imported.length === 0) {
-          alert("インポート可能なデータがありませんでした。");
+          showToast("インポート可能なデータがありませんでした。");
           el.inputStudentsCsv.value = "";
           return;
         }
@@ -657,7 +718,7 @@
           `${imported.length}名の生徒をインポートします。\n` +
           `現在の生徒データ（${state.students.length}名）は削除され、座席配置もリセットされます。\n\nよろしいですか？`;
 
-        if (!window.confirm(confirmMessage)) {
+        if (!await showConfirm(confirmMessage)) {
           el.inputStudentsCsv.value = "";
           return;
         }
@@ -667,10 +728,10 @@
         state.selection = null;
         saveToHistory(`CSV入力：${imported.length}名の生徒を登録`);
 
-        alert(`${imported.length}名の生徒を正常にインポートしました。`);
+        showToast(`${imported.length}名の生徒を正常にインポートしました。`);
       } catch (err) {
         console.error("CSV読み込みエラー:", err);
-        alert("CSVファイルの処理中にエラーが発生しました。\nファイル形式を確認してください。");
+        showToast("CSVファイルの処理中にエラーが発生しました。\nファイル形式を確認してください。");
       } finally {
         el.inputStudentsCsv.value = "";
       }
@@ -698,10 +759,10 @@
         btn.type = "button";
         btn.className = "class-btn" + ((state.selectedGrade === g && state.selectedClass === c) ? " active" : "");
         btn.textContent = `${c}組`;
-        btn.addEventListener("click", () => {
+        btn.addEventListener("click", async () => {
           state.selectedGrade = g;
           state.selectedClass = c;
-          loadData();
+          await loadData();
           persistData();
           render();
         });
@@ -899,8 +960,8 @@
       btnDel.type = "button";
       btnDel.className = "danger-mini";
       btnDel.textContent = "削除";
-      btnDel.addEventListener("click", () => {
-        if (window.confirm(`「${st.name}」を削除しますか？\n（座席に配置されている場合は解除されます）`)) {
+      btnDel.addEventListener("click", async () => {
+        if (await showConfirm(`「${st.name}」を削除しますか？\n（座席に配置されている場合は解除されます）`)) {
           deleteStudent(st.id);
         }
       });
@@ -982,8 +1043,8 @@
       btnDelete.type = "button";
       btnDelete.className = "mini red";
       btnDelete.textContent = "🗑️ 削除";
-      btnDelete.addEventListener("click", () => {
-        if (window.confirm("この履歴を削除しますか？")) deleteHistory(item.id);
+      btnDelete.addEventListener("click", async () => {
+        if (await showConfirm("この履歴を削除しますか？")) deleteHistory(item.id);
       });
 
       actions.appendChild(btnRestore);
@@ -1015,8 +1076,8 @@
 
   el.btnAutoArrange.addEventListener("click", autoArrange);
 
-  el.btnClearAll.addEventListener("click", () => {
-    if (window.confirm("全座席をクリアしますか？")) clearAll();
+  el.btnClearAll.addEventListener("click", async () => {
+    if (await showConfirm("全座席をクリアしますか？")) clearAll();
   });
 
   el.btnSaveHistory.addEventListener("click", () => saveToHistory("手動保存"));
@@ -1069,13 +1130,13 @@
   el.btnClearSelection.addEventListener("click", clearSelection);
 
   // Layout change
-  function applyLayoutChange() {
+  async function applyLayoutChange() {
     const rows = clampInt(el.inputRows.value, 1, 10, state.layout.rows);
     const cols = clampInt(el.inputCols.value, 1, 10, state.layout.cols);
     const changed = rows !== state.layout.rows || cols !== state.layout.cols;
     if (!changed) return;
 
-    if (!window.confirm("行・列を変更すると、座席配置はリセットされます。\nよろしいですか？")) {
+    if (!await showConfirm("行・列を変更すると、座席配置はリセットされます。\nよろしいですか？")) {
       el.inputRows.value = String(state.layout.rows);
       el.inputCols.value = String(state.layout.cols);
       return;
@@ -1099,17 +1160,18 @@
   el.btnCopyCsv.addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText(el.csvText.value);
-      alert("コピーしました");
+      showToast("コピーしました");
     } catch {
       // fallback
       el.csvText.focus();
       el.csvText.select();
-      alert("クリップボードに直接書き込めませんでした。選択状態にしたので Ctrl+C でコピーしてください。");
+      showToast("クリップボードに直接書き込めませんでした。選択状態にしたので Ctrl+C でコピーしてください。");
     }
   });
 
   // ===== Init =====
-  loadData();
-  persistData();
-  render();
+  loadData().then(() => {
+    persistData();
+    render();
+  });
 })();
