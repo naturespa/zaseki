@@ -37,6 +37,11 @@ const upsertStmt = db.prepare(`
 app.use(express.json({ limit: "2mb" }));
 app.use(express.static(path.join(__dirname)));
 
+// zaseki.html → index.html にリダイレクト
+app.get("/zaseki.html", (req, res) => {
+  res.redirect(301, "/index.html");
+});
+
 // ===== API =====
 
 // クラスデータ取得
