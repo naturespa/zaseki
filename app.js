@@ -271,51 +271,82 @@
   }
 
   // ===== Persistence =====
-  function loadData() {
+  async function loadData() {
     const key = classKey();
+    let serverData = null;
 
-    const savedLayoutJson = storage.getItem(`layout-${key}`);
-    const savedStudentsJson = storage.getItem(`students-${key}`);
-    const savedSeatsJson = storage.getItem(`seats-${key}`);
-    const savedHistoryJson = storage.getItem(`history-${key}`);
-    const savedRotate = storage.getItem(`rotate-${key}`);
-
-    state.rotate180 = parseBool(savedRotate, state.rotate180);
-
-    state.layout = normalizeLayout(savedLayoutJson ? safeParse(savedLayoutJson, state.layout) : state.layout);
-
-    if (savedStudentsJson) {
-      state.students = safeParse(savedStudentsJson, []);
-    } else {
-      state.students = makeSampleStudents(key, state.selectedGrade, state.selectedClass);
+    try {
+      const res = await fetch(`/api/class/${state.selectedGrade}/${state.selectedClass}`);
+      if (res.ok) serverData = await res.json();
+    } catch {
+      // API 未接続時は localStorage にフォールバック
     }
 
-    let savedSeats = null;
-    if (savedSeatsJson) {
-      savedSeats = safeParse(savedSeatsJson, []);
-      state.seats = Array.isArray(savedSeats) ? savedSeats : [];
+    if (serverData) {
+      state.rotate180  = parseBool(serverData.rotate180, true);
+      state.layout     = normalizeLayout(serverData.layout || {});
+      state.students   = Array.isArray(serverData.students) ? serverData.students
+                          : makeSampleStudents(key, state.selectedGrade, state.selectedClass);
+      const savedSeats = Array.isArray(serverData.seats) ? serverData.seats : [];
+      state.seats      = savedSeats;
+      ensureSeatsMatchLayout(savedSeats);
+      state.history    = Array.isArray(serverData.history) ? serverData.history : [];
     } else {
-      state.seats = [];
-    }
-    ensureSeatsMatchLayout(savedSeats);
+      // localStorage フォールバック
+      const savedLayoutJson   = storage.getItem(`layout-${key}`);
+      const savedStudentsJson = storage.getItem(`students-${key}`);
+      const savedSeatsJson    = storage.getItem(`seats-${key}`);
+      const savedHistoryJson  = storage.getItem(`history-${key}`);
+      const savedRotate       = storage.getItem(`rotate-${key}`);
 
-    state.history = savedHistoryJson ? safeParse(savedHistoryJson, []) : [];
+      state.rotate180 = parseBool(savedRotate, state.rotate180);
+      state.layout    = normalizeLayout(savedLayoutJson ? safeParse(savedLayoutJson, state.layout) : state.layout);
+
+      if (savedStudentsJson) {
+        state.students = safeParse(savedStudentsJson, []);
+      } else {
+        state.students = makeSampleStudents(key, state.selectedGrade, state.selectedClass);
+      }
+
+      let savedSeats = null;
+      if (savedSeatsJson) {
+        savedSeats  = safeParse(savedSeatsJson, []);
+        state.seats = Array.isArray(savedSeats) ? savedSeats : [];
+      } else {
+        state.seats = [];
+      }
+      ensureSeatsMatchLayout(savedSeats);
+      state.history = savedHistoryJson ? safeParse(savedHistoryJson, []) : [];
+    }
 
     el.inputRows.value = String(state.layout.rows);
     el.inputCols.value = String(state.layout.cols);
-
-    state.selection = null;
-    state.draggedStudentId = null;
-    state.draggedFromSeat = null;
+    state.selection         = null;
+    state.draggedStudentId  = null;
+    state.draggedFromSeat   = null;
   }
 
   function persistData() {
     const key = classKey();
+    // localStorage キャッシュ（オフライン対応）
     storage.setItem(`students-${key}`, JSON.stringify(state.students));
-    storage.setItem(`seats-${key}`, JSON.stringify(state.seats));
-    storage.setItem(`layout-${key}`, JSON.stringify(state.layout));
-    storage.setItem(`history-${key}`, JSON.stringify(state.history));
-    storage.setItem(`rotate-${key}`, String(state.rotate180));
+    storage.setItem(`seats-${key}`,    JSON.stringify(state.seats));
+    storage.setItem(`layout-${key}`,   JSON.stringify(state.layout));
+    storage.setItem(`history-${key}`,  JSON.stringify(state.history));
+    storage.setItem(`rotate-${key}`,   String(state.rotate180));
+
+    // サーバーに保存（fire-and-forget）
+    fetch(`/api/class/${state.selectedGrade}/${state.selectedClass}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        layout:    state.layout,
+        students:  state.students,
+        seats:     state.seats,
+        history:   state.history,
+        rotate180: state.rotate180,
+      }),
+    }).catch(() => {}); // API 未接続時は無視
   }
 
   // ===== History =====
@@ -728,10 +759,10 @@
         btn.type = "button";
         btn.className = "class-btn" + ((state.selectedGrade === g && state.selectedClass === c) ? " active" : "");
         btn.textContent = `${c}組`;
-        btn.addEventListener("click", () => {
+        btn.addEventListener("click", async () => {
           state.selectedGrade = g;
           state.selectedClass = c;
-          loadData();
+          await loadData();
           persistData();
           render();
         });
@@ -1139,7 +1170,8 @@
   });
 
   // ===== Init =====
-  loadData();
-  persistData();
-  render();
+  loadData().then(() => {
+    persistData();
+    render();
+  });
 })();

@@ -1,0 +1,5 @@
+node_modules/
+zaseki.db
+*.db-journal
+*.db-shm
+*.db-wal
