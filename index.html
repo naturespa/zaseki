@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>座席表管理（Teams向け）</title>
-  <link rel="stylesheet" href="./styles.css">
+  <title>座席表管理</title>
+  <link rel="stylesheet" href="./style.css">
   <script src="./app.js" defer></script>
 </head>
 
@@ -14,7 +14,7 @@
       <div class="topbar-inner">
         <div>
           <h1>明石南高校　オンライン座席表管理システム</h1>
-          <p>Teams埋め込み対応（クリック配置/交換 + 回転ON/OFF + CSV + 履歴）</p>
+          <p>クリック・ドラッグで座席配置 / CSV入出力 / 履歴管理</p>
         </div>
         <div id="envBanner" class="env-banner hidden"></div>
       </div>
@@ -98,7 +98,7 @@
                   <div class="unassigned-head">
                     <h3>未配置の学生</h3>
                     <div class="hint">
-                      <div>✅ ドラッグが効かない環境でもOK：<b>クリック</b>で配置できます</div>
+                      <div>ドラッグまたはクリックで配置できます</div>
                       <div>・生徒をクリック → 座席をクリック（配置）</div>
                       <div>・座席の生徒をクリック → 別の座席をクリック（移動/交換）</div>
                     </div>
@@ -158,11 +158,11 @@
   <div id="csvModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="csvTitle">
     <div class="modal-panel">
       <div class="modal-head">
-        <h3 id="csvTitle">CSV（ダウンロードできない環境向け）</h3>
+        <h3 id="csvTitle">CSVテキスト</h3>
         <button id="btnCloseCsv" class="modal-close" type="button" aria-label="閉じる">×</button>
       </div>
       <div class="modal-body">
-        <p class="csv-note">Teams内でダウンロードがブロックされた可能性があります。以下をコピーして保存してください。</p>
+        <p class="csv-note">ダウンロードできない場合は、以下をコピーして保存してください。</p>
         <textarea id="csvText" class="csv-textarea" spellcheck="false"></textarea>
         <div class="csv-actions">
           <button id="btnCopyCsv" class="btn blue" type="button">📋 コピー</button>

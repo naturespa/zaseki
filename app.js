@@ -221,19 +221,8 @@
   }
 
   function showEnvBannerIfNeeded() {
-    // Teams埋め込みでは storage が memory になることが多い
-    const msgs = [];
     if (storage.type === "memory") {
-      msgs.push("この表示環境では保存領域(localStorage等)が利用できません。データは保持されない可能性があります。");
-    }
-    // iframe内はドラッグが効かないことがあるので案内
-    let inIframe = false;
-    try { inIframe = window.top !== window.self; } catch { inIframe = true; }
-    if (inIframe) {
-      msgs.push("埋め込み表示ではドラッグが無効な場合があります（クリック配置は利用できます）。");
-    }
-    if (msgs.length > 0) {
-      el.envBanner.textContent = msgs.join(" ");
+      el.envBanner.textContent = "この環境では保存領域(localStorage)が利用できません。ページを閉じるとデータが消える可能性があります。";
       el.envBanner.classList.remove("hidden");
     } else {
       el.envBanner.classList.add("hidden");
