@@ -3,7 +3,7 @@
 
   const CLASS_STRUCTURE = { 1: 7, 2: 7, 3: 8 };
 
-  // ===== Storage Adapter（Teams埋め込みでlocalStorageが死んでも落ちない）=====
+  // ===== Storage Adapter（localStorage が使えない環境でも落ちないようにフォールバック）=====
   function createStorageAdapter() {
     const mem = new Map();
 
@@ -533,7 +533,7 @@
       link.href = url;
       link.download = filename;
 
-      // Teams埋め込みで click が無効化される場合があるので try/catch
+      // ダウンロードが失敗する場合があるので try/catch
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -541,7 +541,7 @@
 
       alert("CSV出力が完了しました");
     } catch (err) {
-      console.warn("CSVダウンロードがブロックされた可能性:", err);
+      console.warn("CSVダウンロード失敗:", err);
       openCsvModal(csv);
     }
   }
