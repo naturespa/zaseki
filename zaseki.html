@@ -1410,7 +1410,7 @@
           const meta = document.createElement("div");
           meta.className = "history-meta";
           meta.innerHTML = `
-            <div>🕒 ${item.date || ""}</div>
+            <div>🕒 ${String(item.date || "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;", "'":"&#39;"})[ch])}</div>
             <div>🪑 配置数: <strong style="color:#0f172a;">${assignedCount}席</strong></div>
             <div>👥 生徒数: <strong style="color:#0f172a;">${studentCount}名</strong></div>
           `;
