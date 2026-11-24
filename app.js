@@ -505,10 +505,11 @@
     const headers = ["出席番号", "名前", "座席(行)", "座席(列)"];
     const rows = state.students.map((st) => {
       const seat = assignedSeatOfStudent(st.id);
-      const name = String(st.name || "").replace(/"/g, '""');
+      const name = String(st.name ?? "");
+      const safeName = /^[\s\u0000-\u001f]*[=+\-@＝＋－＠]/.test(name) ? "'" + name : name;
       return [
         st.attendanceNumber ?? "",
-        `"${name}"`,
+        `"${safeName.replace(/"/g, '""')}"`,
         seat ? seat.row + 1 : "",
         seat ? seat.col + 1 : "",
       ];
